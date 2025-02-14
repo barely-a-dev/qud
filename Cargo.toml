@@ -3,6 +3,7 @@ name = "qud"
 version = "0.9.7"
 edition = "2021"
 license = "GPL-3"
+authors = ["barely-a-dev"]
 
 [dependencies]
 pico-args = "0.5.0"
