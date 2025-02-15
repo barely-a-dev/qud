@@ -108,7 +108,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.3.8");
+            println!("qud v1.3.9");
             std::process::exit(0);
         }
         if pargs.contains(["-S", "--self-update"]) {
@@ -215,7 +215,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.3.8
+            r#"qud v1.3.9
 
 Usage:
   qud [options]
