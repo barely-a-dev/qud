@@ -207,7 +207,6 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v0.9.7
             r#"qud v1.0.7
 
 Usage:
