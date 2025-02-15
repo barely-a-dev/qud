@@ -90,20 +90,6 @@ struct Config {
 }
 
 impl Config {
-    /// Parses command-line arguments using pico-args.
-    ///
-    /// Recognized flags:
-    ///   --dry, -d           : Dry run (print commands instead of executing).
-    ///   --excl, -e          : Exclude updating a package from a manager (format: pm::pkg) or a package manager entirely (format: pm). May be repeated.
-    ///   --auto, -a          : Use auto mode (non-interactive flags when available).
-    ///   --verbose, -v       : Enable verbose logging.
-    ///   --list, -l          : List detected package managers and exit.
-    ///   --only, -o          : Update only the specified package manager (may be repeated).
-    ///   --spec, -s          : Override the detected executable for a package manager (format: pm::/path/to/executable). May be repeated.
-    ///   --ext, -E           : Pass extra flags to a package manager (format: pm::"<flags>").
-    ///   --ord, -O           : Specify the order to update in. If passed a value (format pm1,pm2,pm3), it will use that order for those package managers if found and leave the others in their original relative order. If NOT passed a value, it will ask during runtime to sort the found package managers.
-    ///   --help, -h          : Show this help screen.
-    ///   --version, -V       : Show version information.
     fn parse_args() -> Config {
         let mut pargs = Arguments::from_env();
 
@@ -113,7 +99,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.0.7");
+            println!("qud v1.1.7");
             std::process::exit(0);
         }
 
@@ -137,7 +123,6 @@ impl Config {
             Some(only_values)
         };
 
-        // Parse the new --spec option.
         let spec_values: Vec<String> = pargs
             .values_from_str(["-s", "--spec"])
             .unwrap_or_else(|_| Vec::new());
@@ -207,7 +192,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.0.7
+            r#"qud v1.1.7
 
 Usage:
   qud [options]
@@ -409,6 +394,46 @@ fn main() {
         final_candidates
     };
 
+    let planned_updates: Vec<_> = final_candidates
+        .iter()
+        .filter_map(|candidate| {
+            if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
+                // Respect --only option.
+                if let Some(ref only_list) = config.only {
+                    if !only_list.iter().any(|s| s == pm_name) {
+                        return None;
+                    }
+                }
+                // Skip fully excluded package managers.
+                if let Some(exclusions) = config.exclusions.get(pm_name) {
+                    if exclusions.is_empty() {
+                        return None;
+                    }
+                }
+                Some(format!("{} ({})", pm_name, candidate.display()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    println!("Updating with:");
+    for item in &planned_updates {
+        println!("  {item}");
+    }
+    if !config.auto {
+        println!("Proceed with these updates? (Y/n): ");
+        let mut confirm = String::new();
+        std::io::stdin()
+            .read_line(&mut confirm)
+            .expect("Failed to read line");
+        let confirm = confirm.trim().to_lowercase();
+        if confirm == "n" || confirm == "no" {
+            println!("Update cancelled by user.");
+            std::process::exit(0);
+        }
+    }
+
     let current_dir = env::current_dir().unwrap_or_else(|_| "/".into());
 
     // Process each final candidate package manager.
@@ -460,6 +485,11 @@ fn main() {
 
 #[allow(clippy::too_many_lines)]
 fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[String], dry_run: bool) {
+    println!(
+        "\x1b[94mINFO: Processing package manager: {} in directory: {}\x1b[0m",
+        pm_name,
+        current_dir.display()
+    );
     match pm_name {
         "pacman" => {
             let args: &[&str] = if auto {
@@ -785,12 +815,17 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
     let mut args: Vec<String> = base_args.iter().map(ToString::to_string).collect();
     args.extend_from_slice(extra_args);
 
-    // Prepare the command string.
+    let cmd_str = if use_sudo {
+        format!("sudo {} {}", command, args.join(" "))
+    } else {
+        format!("{} {}", command, args.join(" "))
+    };
+
     if dry_run {
-        println!("Dry run: {} {}", command, args.join(" "));
+        println!("Dry run: {}", cmd_str);
         return;
     }
-
+    println!("\x1b[94mINFO: Executing command: {}\x1b[0m", cmd_str);
     match gen_upd_cmd(command, &args, use_sudo).status() {
         Ok(es) => println!("Successfully updated with {command}, exited with status {es}"),
         Err(e) => eprintln!("\x1b[91mERR:\x1b[0m Failed to update with {command}, ERR: {e}"),
