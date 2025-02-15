@@ -28,6 +28,9 @@ jobs:
         override: true
         targets: x86_64-pc-windows-gnu
 
+    - name: add windows target
+      run: rustup target add x86_64-pc-windows-gnu
+
     - name: Install MinGW
       run: sudo apt-get update && sudo apt-get install -y mingw-w64
 
