@@ -1,8 +1,9 @@
 # qud: Universal Package Manager Updater
 
-`qud` is a command-line tool designed to **automatically detect and update** various package managers on your system. It supports both system-level and language-specific package managers on Linux, Windows, macOS, and more.
+`qud` is a command-line tool designed to **automatically detect and update** various package managers on your system. It
+supports both system-level and language-specific package managers on Linux, Windows, macOS, and more.
 
-> **Note:** Current version: **v0.9.7**
+> **Note:** Current version: **v1.0.7**
 
 ---
 
@@ -39,11 +40,13 @@
 `qud` supports a broad range of package managers, including but not limited to:
 
 - **Linux:**  
-  `pacman`, `yay`, `apt`, `apt-get`, `dnf`, `zypper`, `snap`, `flatpak`, `xbps-install`, `apk`, `emerge`, `guix`, `nix`, `yum`, `eopkg`
+  `pacman`, `yay`, `apt`, `apt-get`, `dnf`, `zypper`, `snap`, `flatpak`, `xbps-install`, `apk`, `emerge`, `guix`, `nix`,
+  `yum`, `eopkg`
 - **Windows:**  
   `choco`, `scoop`, `winget`
 - **General/Other:**  
-  `rustup`, `brew`, `port` (MacPorts), `pkg` (FreeBSD), `cargo`, `npm`, `pip`, `composer`, `gem`, `conda`, `poetry`, `nuget`
+  `rustup`, `brew`, `port` (MacPorts), `pkg` (FreeBSD), `cargo`, `npm`, `pip`, `composer`, `gem`, `conda`, `poetry`,
+  `nuget`, `asdf`, `vcpkg`, `conan`, `stack`, `opam`, `mix`, `sdkman`, `gvm`, `pnpm`, `yarn`, `maven`, `go`
 
 ---
 
@@ -73,6 +76,7 @@ qud [options]
 ```
 
 When executed, `qud` will:
+
 1. Search your `PATH` for known package manager executables.
 2. Apply configuration based on your provided command-line options.
 3. Build and execute (or print, in dry-run mode) update commands for each detected package manager.
@@ -93,7 +97,7 @@ When executed, `qud` will:
 | `--ext <s>`    | `-E <s>`  | **Extra Flags:** Pass additional flags to a package manager's command. Format: `pm::"<flags>"`.                                                                                                                    |
 | `--ord [s]`    | `-O [s]`  | **Custom Order:** Specify the update order. If a value is provided (e.g. `pm1,pm2,pm3`), those package managers are updated in that order. Without a value, interactive mode prompts you to sort the update order. |
 | `--help`       | `-h`      | **Help:** Display the help message.                                                                                                                                                                                |
-| `--version`    | `-V`      | **Version:** Show version information (e.g., `v0.9.7`).                                                                                                                                                            |
+| `--version`    | `-V`      | **Version:** Show version information (e.g., `v1.0.7`).                                                                                                                                                            |
 
 ---
 
@@ -184,21 +188,27 @@ Type your desired order (e.g., `2,0,1`) and press Enter.
 ## How It Works
 
 1. **Detection:**  
-   `qud` scans the directories in your `PATH` for executables that match a pre-defined list of package manager names using a recursive search (powered by the [`walkdir`](https://crates.io/crates/walkdir) crate). If multiple instances are found, the first one is chosen while issuing a warning if verbose mode is active.
+   `qud` scans the directories in your `PATH` for executables that match a pre-defined list of package manager names
+   using a recursive search (powered by the [`walkdir`](https://crates.io/crates/walkdir) crate). If multiple instances
+   are found, the first one is chosen while issuing a warning if verbose mode is active.
 
 2. **Configuration:**  
-   The tool processes command-line arguments to determine which package managers to update, any custom flags or executable overrides, and the ordering of updates. Options like `--excl`, `--spec`, and `--ext` allow granular control.
+   The tool processes command-line arguments to determine which package managers to update, any custom flags or
+   executable overrides, and the ordering of updates. Options like `--excl`, `--spec`, and `--ext` allow granular
+   control.
 
 3. **Processing & Execution:**  
    For each package manager:
     - **Exclusions & Overrides:** Checks if the manager or specific packages should be skipped.
     - **Command Assembly:** Combines base update commands with extra exclusion or extension arguments.
     - **Sudo Usage:** Some updates require administrative privileges and are prefixed with `sudo` when needed.
-    - **Dry Run vs. Execution:** In dry run mode, the command is printed; otherwise, it is executed with real-time I/O streams.
+    - **Dry Run vs. Execution:** In dry run mode, the command is printed; otherwise, it is executed with real-time I/O
+      streams.
 
 4. **Reordering:**  
    If `--ord` is used, `qud` reorders the detected package managers:
-    - **Specified Order:** If you provide a comma-separated list (e.g., `apt,yum,brew`), those managers are updated in that order, with any remaining ones appended in their original sequence.
+    - **Specified Order:** If you provide a comma-separated list (e.g., `apt,yum,brew`), those managers are updated in
+      that order, with any remaining ones appended in their original sequence.
     - **Interactive Mode:** Without a value, you’re prompted to input your desired order interactively.
 
 ---
@@ -206,10 +216,12 @@ Type your desired order (e.g., `2,0,1`) and press Enter.
 ## Customization & Internals
 
 - **Executable Detection:**  
-  The tool leverages environment variables and file system traversal to locate package manager executables. It even checks for duplicate installations and warns when multiple instances are detected.
+  The tool leverages environment variables and file system traversal to locate package manager executables. It even
+  checks for duplicate installations and warns when multiple instances are detected.
 
 - **Per-Package Manager Logic:**  
-  Each package manager has its own update routine defined in `process_pm`. This includes both the base command and any extra flags needed (which vary based on whether auto mode is enabled).
+  Each package manager has its own update routine defined in `process_pm`. This includes both the base command and any
+  extra flags needed (which vary based on whether auto mode is enabled).
 
 - **Exclusion & Extra Arguments:**  
   Custom handling is provided for exclusions. For example:
@@ -218,9 +230,11 @@ Type your desired order (e.g., `2,0,1`) and press Enter.
     - Other package managers may warn if exclusions are not supported.
 
 - **Command Generation:**  
-  The update commands are constructed using Rust’s `Command` API, allowing you to see the full command line that would be executed (especially useful in dry run mode).
+  The update commands are constructed using Rust’s `Command` API, allowing you to see the full command line that would
+  be executed (especially useful in dry run mode).
 
-For more details or to contribute enhancements, please review the source code and join the discussion on our GitHub repository.
+For more details or to contribute enhancements, please review the source code and join the discussion on our GitHub
+repository.
 
 ---
 
@@ -239,6 +253,7 @@ Please open an issue or submit a pull request on the [GitHub repository](https:/
 
 ## Version
 
-**v0.9.7**
+**v1.0.7**
 
-For further questions or assistance, please refer to the [GitHub repository](https://github.com/barely-a-dev/qud) or contact the maintainer. Happy updating!
+For further questions or assistance, please refer to the [GitHub repository](https://github.com/barely-a-dev/qud) or
+contact the maintainer. Happy updating!

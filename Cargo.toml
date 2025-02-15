@@ -1,6 +1,6 @@
 [package]
 name = "qud"
-version = "0.9.7"
+version = "1.0.7"
 edition = "2021"
 license = "GPL-3"
 authors = ["barely-a-dev"]

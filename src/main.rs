@@ -11,8 +11,9 @@ use walkdir::WalkDir;
 // Supported package managers:
 // Linux: pacman, yay, apt, apt-get, dnf, zypper, snap, flatpak, xbps-install, apk, emerge, guix, nix, yum, eopkg
 // Windows: choco, scoop, winget
-// General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget
-const PM: [&str; 30] = [
+// General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman
+// gvm, pnpm, yarn, maven, go
+const PM: [&str; 42] = [
     "pacman",
     "yay",
     "apt",
@@ -43,6 +44,18 @@ const PM: [&str; 30] = [
     "conda",
     "poetry",
     "nuget",
+    "asdf",
+    "vcpkg",
+    "conan",
+    "stack",
+    "opam",
+    "mix",
+    "sdkman",
+    "gvm",
+    "pnpm",
+    "yarn",
+    "maven",
+    "go",
 ];
 
 /// Determines how to order package manager updates.
@@ -100,7 +113,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v0.9.7");
+            println!("qud v1.0.7");
             std::process::exit(0);
         }
 
@@ -150,12 +163,11 @@ impl Config {
         let mut exts: HashMap<String, Vec<String>> = HashMap::new();
         for ext in ext_values {
             if let Some((pm, flags)) = ext.split_once("::") {
-                // Split the flags on whitespace.
-                let flags_vec: Vec<String> =
-                    flags.split_whitespace().map(std::string::ToString::to_string).collect();
-                exts.entry(pm.to_string())
-                    .or_default()
-                    .extend(flags_vec);
+                let flags_vec: Vec<String> = flags
+                    .split_whitespace()
+                    .map(std::string::ToString::to_string)
+                    .collect();
+                exts.entry(pm.to_string()).or_default().extend(flags_vec);
             } else {
                 eprintln!("\x1b[91mERR:\x1b[0m Invalid ext format: {ext}");
             }
@@ -196,6 +208,7 @@ impl Config {
     fn print_help() {
         println!(
             r#"qud v0.9.7
+            r#"qud v1.0.7
 
 Usage:
   qud [options]
@@ -304,7 +317,10 @@ fn main() {
     let mut grouped: HashMap<String, Vec<PathBuf>> = HashMap::new();
     for candidate in &raw_candidates {
         if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-            grouped.entry(pm_name.to_string()).or_default().push(candidate.clone());
+            grouped
+                .entry(pm_name.to_string())
+                .or_default()
+                .push(candidate.clone());
         }
     }
 
@@ -398,7 +414,9 @@ fn main() {
 
     // Process each final candidate package manager.
     for package_manager in final_candidates {
-        let Some(pm_name) = package_manager.file_name().and_then(|s| s.to_str()) else { continue };
+        let Some(pm_name) = package_manager.file_name().and_then(|s| s.to_str()) else {
+            continue;
+        };
 
         // If --only was used, skip those not specified.
         if let Some(ref only_list) = config.only {
@@ -431,26 +449,37 @@ fn main() {
         let mut extra_args = config.get_exclusion_args(pm_name);
         extra_args.extend(config.get_ext_args(pm_name));
 
-        process_pm(pm_name, config.auto, &current_dir, &extra_args, config.dry_run);
+        process_pm(
+            pm_name,
+            config.auto,
+            &current_dir,
+            &extra_args,
+            config.dry_run,
+        );
     }
 }
 
 #[allow(clippy::too_many_lines)]
-fn process_pm(
-    pm_name: &str,
-    auto: bool,
-    current_dir: &Path,
-    extra_args: &[String],
-    dry_run: bool,
-) {
+fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[String], dry_run: bool) {
     match pm_name {
         "pacman" => {
-            let args: &[&str] = if auto { &["-Syu", "--noconfirm"] } else { &["-Syu"] };
+            let args: &[&str] = if auto {
+                &["-Syu", "--noconfirm"]
+            } else {
+                &["-Syu"]
+            };
             upd("pacman", args, true, extra_args, dry_run);
         }
         "yay" => {
             let args: &[&str] = if auto {
-                &["-Syu", "--noconfirm", "--answerdiff", "None", "--answerclean", "None"]
+                &[
+                    "-Syu",
+                    "--noconfirm",
+                    "--answerdiff",
+                    "None",
+                    "--answerclean",
+                    "None",
+                ]
             } else {
                 &["-Syu"]
             };
@@ -458,15 +487,27 @@ fn process_pm(
         }
         "apt" | "apt-get" => {
             upd(pm_name, &["update"], true, extra_args, dry_run);
-            let upgrade_args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let upgrade_args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd(pm_name, upgrade_args, true, extra_args, dry_run);
         }
         "dnf" => {
-            let args: &[&str] = if auto { &["upgrade", "--refresh", "-y"] } else { &["upgrade", "--refresh"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "--refresh", "-y"]
+            } else {
+                &["upgrade", "--refresh"]
+            };
             upd("dnf", args, true, extra_args, dry_run);
         }
         "zypper" => {
-            let args: &[&str] = if auto { &["--non-interactive", "update"] } else { &["update"] };
+            let args: &[&str] = if auto {
+                &["--non-interactive", "update"]
+            } else {
+                &["update"]
+            };
             upd("zypper", args, true, extra_args, dry_run);
         }
         "snap" => {
@@ -481,7 +522,11 @@ fn process_pm(
             upd("xbps-install", args, true, extra_args, dry_run);
         }
         "choco" => {
-            let args: &[&str] = if auto { &["upgrade", "all", "-y"] } else { &["upgrade", "all"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "all", "-y"]
+            } else {
+                &["upgrade", "all"]
+            };
             upd("choco", args, false, extra_args, dry_run);
         }
         "scoop" => {
@@ -489,7 +534,12 @@ fn process_pm(
         }
         "winget" => {
             let args: &[&str] = if auto {
-                &["upgrade", "--all", "--accept-source-agreements", "--accept-package-agreements"]
+                &[
+                    "upgrade",
+                    "--all",
+                    "--accept-source-agreements",
+                    "--accept-package-agreements",
+                ]
             } else {
                 &["upgrade", "--all"]
             };
@@ -512,12 +562,22 @@ fn process_pm(
         }
         "emerge" => {
             upd("emerge", &["--sync"], true, extra_args, dry_run);
-            let args: &[&str] = if auto { &["-uDN", "@world"] } else { &["-avuDN", "@world"] };
+            let args: &[&str] = if auto {
+                &["-uDN", "@world"]
+            } else {
+                &["-avuDN", "@world"]
+            };
             upd("emerge", args, true, extra_args, dry_run);
         }
         "guix" => {
             upd("guix", &["pull"], false, extra_args, dry_run);
-            upd("guix", &["package", "--upgrade"], false, extra_args, dry_run);
+            upd(
+                "guix",
+                &["package", "--upgrade"],
+                false,
+                extra_args,
+                dry_run,
+            );
         }
         "yum" => {
             let args: &[&str] = if auto { &["update", "-y"] } else { &["update"] };
@@ -529,12 +589,20 @@ fn process_pm(
         }
         "pkg" => {
             upd("pkg", &["update"], true, extra_args, dry_run);
-            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd("pkg", args, true, extra_args, dry_run);
         }
         "eopkg" => {
             upd("eopkg", &["update-repo"], true, extra_args, dry_run);
-            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd("eopkg", args, true, extra_args, dry_run);
         }
         "cargo" => {
@@ -549,7 +617,13 @@ fn process_pm(
         }
         "pip" => {
             if p_cont(current_dir, "requirements.txt").unwrap_or(false) {
-                upd("pip", &["install", "--upgrade", "-r", "requirements.txt"], false, extra_args, dry_run);
+                upd(
+                    "pip",
+                    &["install", "--upgrade", "-r", "requirements.txt"],
+                    false,
+                    extra_args,
+                    dry_run,
+                );
             }
         }
         "composer" => {
@@ -558,19 +632,114 @@ fn process_pm(
             }
         }
         "gem" => {
-            upd("gem", &["update", "--no-document"], false, extra_args, dry_run);
+            upd(
+                "gem",
+                &["update", "--no-document"],
+                false,
+                extra_args,
+                dry_run,
+            );
         }
         "conda" => {
-            upd("conda", &["update", "--all", "-y"], true, extra_args, dry_run);
+            upd(
+                "conda",
+                &["update", "--all", "-y"],
+                true,
+                extra_args,
+                dry_run,
+            );
         }
         "poetry" => {
             upd("poetry", &["update"], false, extra_args, dry_run);
         }
         "nuget" => {
             if p_cont(current_dir, "packages.config").unwrap_or(false) {
-                upd("nuget", &["update", "packages.config"], false, extra_args, dry_run);
+                upd(
+                    "nuget",
+                    &["update", "packages.config"],
+                    false,
+                    extra_args,
+                    dry_run,
+                );
             } else if let Some(Ok(f)) = p_cont_ext(current_dir, ".sln") {
                 upd("nuget", &["update", &f], false, extra_args, dry_run);
+            }
+        }
+        "asdf" => {
+            upd("asdf", &["update"], false, extra_args, dry_run);
+            upd(
+                "asdf",
+                &["plugin-update", "--all"],
+                false,
+                extra_args,
+                dry_run,
+            );
+        }
+        "vcpkg" => {
+            let args: &[&str] = if auto { &["upgrade"] } else { &["update"] };
+            upd("vcpkg", args, false, extra_args, dry_run);
+        }
+        "conan" => {
+            if p_cont(current_dir, "conanfile.txt").unwrap_or(false)
+                || p_cont(current_dir, "conanfile.py").unwrap_or(false)
+            {
+                upd(
+                    "conan",
+                    &["install", ".", "--update"],
+                    false,
+                    extra_args,
+                    dry_run,
+                );
+            }
+        }
+        "stack" => {
+            if p_cont(current_dir, "stack.yaml").unwrap_or(false) {
+                upd("stack", &["update"], false, extra_args, dry_run);
+                upd("stack", &["upgrade"], false, extra_args, dry_run);
+            }
+        }
+        "opam" => {
+            upd("opam", &["update"], false, extra_args, dry_run);
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
+            upd("opam", args, false, extra_args, dry_run);
+        }
+        "mix" => {
+            if p_cont(current_dir, "mix.exs").unwrap_or(false) {
+                upd("mix", &["deps.update", "--all"], false, extra_args, dry_run);
+            }
+        }
+        "sdkman" => {
+            upd("sdkman", &["update"], false, extra_args, dry_run);
+        }
+        "gvm" => {
+            upd("gvm", &["update"], false, extra_args, dry_run);
+        }
+        "pnpm" => {
+            if p_cont(current_dir, "package.json").unwrap_or(false) {
+                upd("pnpm", &["update"], false, extra_args, dry_run);
+            }
+        }
+        "yarn" => {
+            if p_cont(current_dir, "yarn.lock").unwrap_or(false) {
+                upd("yarn", &["upgrade"], false, extra_args, dry_run);
+            }
+        }
+        "maven" => {
+            if p_cont(current_dir, "pom.xml").unwrap_or(false) {
+                let args: &[&str] = if auto {
+                } else {
+                    &["versions:display-dependency-updates"]
+                };
+                upd("mvn", args, false, extra_args, dry_run);
+            }
+        }
+        "go" => {
+            if p_cont(current_dir, "go.mod").unwrap_or(false) {
+                upd("go", &["get", "-u", "./..."], false, extra_args, dry_run);
             }
         }
         _ => eprintln!("\x1b[93mWarning:\x1b[0m Unknown package manager: {pm_name}"),
@@ -618,7 +787,7 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
 
     // Prepare the command string.
     if dry_run {
-        println!("Dry run: {}", command.to_string() + " " + &args.join(" "));
+        println!("Dry run: {} {}", command, args.join(" "));
         return;
     }
 
@@ -688,11 +857,7 @@ pub fn find_matching_executables(target_filenames: &[&str]) -> Vec<String> {
 }
 
 /// Reorders the list of candidate package managers based on the provided ordering mode.
-fn reorder_candidates(
-    candidates: Vec<PathBuf>,
-    ord_mode: &OrdMode,
-    verbose: bool,
-) -> Vec<PathBuf> {
+fn reorder_candidates(candidates: Vec<PathBuf>, ord_mode: &OrdMode, verbose: bool) -> Vec<PathBuf> {
     match ord_mode {
         OrdMode::Specified(order_vec) => {
             if verbose {
@@ -705,6 +870,8 @@ fn reorder_candidates(
                 .map(|(i, pm)| (pm.to_string(), i))
                 .collect();
             let mut enumerated: Vec<(usize, PathBuf)> = candidates.into_iter().enumerate().collect();
+            let mut enumerated: Vec<(usize, PathBuf)> =
+                candidates.into_iter().enumerate().collect();
             enumerated.sort_by_key(|(orig_index, candidate)| {
                 let pm_name = candidate.file_name().and_then(|s| s.to_str()).unwrap_or("");
                 if let Some(&order_index) = order_map.get(pm_name) {
@@ -713,7 +880,10 @@ fn reorder_candidates(
                     (1, *orig_index)
                 }
             });
-            enumerated.into_iter().map(|(_, candidate)| candidate).collect()
+            enumerated
+                .into_iter()
+                .map(|(_, candidate)| candidate)
+                .collect()
         }
         OrdMode::Interactive => {
             println!("Interactive ordering mode enabled.");
