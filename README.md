@@ -3,7 +3,7 @@
 `qud` is a command-line tool that **automatically detects and updates** various package managers across Linux, Windows,
 macOS, and more.
 
-> **Latest Version:** **v1.3.9**
+> **Latest Version:** **v1.4.9**
 
 ## Table of Contents
 
@@ -59,7 +59,7 @@ sudo pacman -U qud-<version>-x86_64.pkg.tar.zst
 #### Debian-based:
 
 ```bash
-sudo apt install ./qud_v1.3.9_amd64.deb
+sudo apt install ./qud_v1.4.9_amd64.deb
 ```
 
 ## Usage
@@ -174,7 +174,7 @@ Submit issues or pull requests on [GitHub](https://github.com/barely-a-dev/qud).
 
 ## Version
 
-**v1.3.9**
+**v1.4.9**
 
 For assistance, visit [GitHub](https://github.com/barely-a-dev/qud). Happy updating!
 

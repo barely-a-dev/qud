@@ -1,6 +1,9 @@
 #![allow(clippy::doc_markdown)]
 
 mod self_up;
+mod helpers;
+
+use helpers::*;
 
 use pico_args::Arguments;
 use std::collections::{HashMap, HashSet};
@@ -8,15 +11,14 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use walkdir::WalkDir;
 
 // Supported package managers:
 // Linux: pacman, yay, apt, apt-get, dnf, zypper, snap, flatpak, xbps-install, apk, emerge, guix, nix, yum, eopkg, cave, sbopkg, scratch
-// Windows: choco, scoop, winget
-// General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman
-// gvm, pnpm, yarn, maven, go
+// Windows: choco, scoop, winget, windowsupdate (via PowerShell)
+// General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman,
+// gvm, pnpm, yarn, maven, go,
 // and qud itself.
-const PM: [&str; 46] = [
+const PM: [&str; 47] = [
     "pacman",
     "yay",
     "apt",
@@ -63,6 +65,7 @@ const PM: [&str; 46] = [
     "sbopkg",
     "scratch",
     "qud",
+    "windowsupdate",
 ];
 
 /// Determines how to order package manager updates.
@@ -95,6 +98,7 @@ struct Config {
     exts: HashMap<String, Vec<String>>,
     /// Optional ordering of updates.
     ord: Option<OrdMode>,
+    //install_mode: bool,
 }
 
 impl Config {
@@ -108,7 +112,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.3.9");
+            println!("qud v1.4.9");
             std::process::exit(0);
         }
         if pargs.contains(["-S", "--self-update"]) {
@@ -210,12 +214,13 @@ impl Config {
             dry_run,
             exts,
             ord,
+            //install_mode: false,
         }
     }
 
     fn print_help() {
         println!(
-            r#"qud v1.3.9
+            r#"qud v1.4.9
 
 Usage:
   qud [options]
@@ -420,6 +425,27 @@ fn main() {
         final_candidates
     };
 
+    #[cfg(target_os = "windows")]
+    {
+        let include_windowsupdate = match &config.only {
+            Some(only_list) => only_list.iter().any(|s| s == "windowsupdate"),
+            None => true,
+        };
+        if include_windowsupdate {
+            if !final_candidates.iter().any(|p| {
+                p.file_name()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s == "windowsupdate")
+                    .unwrap_or(false)
+            }) {
+                if config.verbose {
+                    println!("Adding Windows update support via PowerShell.");
+                }
+                final_candidates.push(PathBuf::from("windowsupdate"));
+            }
+        }
+    }
+
     let planned_updates: Vec<_> = final_candidates
         .iter()
         .filter_map(|candidate| {
@@ -592,6 +618,16 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
                 &["upgrade", "--all"]
             };
             upd("winget", args, false, extra_args, dry_run);
+        }
+        #[cfg(target_os = "windows")]
+        "windowsupdate" => {
+            // Use PowerShell's PSWindowsUpdate command.
+            let args: &[&str] = if auto {
+                &["-Command", "Install-WindowsUpdate -AcceptAll -AutoReboot"]
+            } else {
+                &["-Command", "Install-WindowsUpdate"]
+            };
+            upd("powershell", args, false, extra_args, dry_run);
         }
         "rustup" => {
             upd("rustup", &["update"], false, extra_args, dry_run);
@@ -885,132 +921,36 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
 /// Creates a Command configured with the given arguments and inherited I/O settings.
 #[must_use]
 pub fn gen_upd_cmd(command: &str, args: &[String], use_sudo: bool) -> Command {
-    let mut cmd = if use_sudo {
-        let mut c = Command::new("sudo");
-        c.arg(command);
-        c
-    } else {
-        Command::new(command)
-    };
-    cmd.args(args)
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .stdin(Stdio::inherit());
-    cmd
-}
-
-#[cfg(target_family = "windows")]
-fn is_executable(path: &Path) -> bool {
-    path.extension()
-        .map(|ext| ext == "exe" || ext == "bat" || ext == "cmd" || ext == "com")
-        .unwrap_or(false)
-}
-
-#[cfg(not(target_family = "windows"))]
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-    fs::metadata(path)
-        .map(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
-}
-
-/// Recursively searches the directories in PATH for executables matching any name in `target_filenames`.
-#[must_use]
-pub fn find_matching_executables(target_filenames: &[&str]) -> Vec<String> {
-    let mut executables = Vec::new();
-
-    if let Ok(paths) = env::var("PATH") {
-        for path in env::split_paths(&paths) {
-            if path.exists() {
-                for entry in WalkDir::new(path).into_iter().flatten() {
-                    let entry_path = entry.path();
-                    if entry_path.is_file() && is_executable(entry_path) {
-                        if let Some(file_name) = entry_path.file_name().and_then(|s| s.to_str()) {
-                            if target_filenames.contains(&file_name)
-                                && !executables.contains(&entry_path.display().to_string())
-                            {
-                                executables.push(entry_path.display().to_string());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    #[cfg(target_family = "windows")]
+    {
+        let mut cmd = if use_sudo {
+            let mut c = Command::new("runas");
+            c.arg("/user:Administrator")
+                .arg(format!("{} {}", command, args.join(" ")));
+            c
+        } else {
+            Command::new(command)
+        };
+        cmd.args(args)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .stdin(Stdio::inherit());
+        cmd
     }
 
-    executables
-}
-
-/// Reorders the list of candidate package managers based on the provided ordering mode.
-fn reorder_candidates(candidates: Vec<PathBuf>, ord_mode: &OrdMode, verbose: bool) -> Vec<PathBuf> {
-    match ord_mode {
-        OrdMode::Specified(order_vec) => {
-            if verbose {
-                println!("Reordering package managers using specified order: {order_vec:?}");
-            }
-            // Map each package manager name to its order index.
-            let order_map: HashMap<String, usize> = order_vec
-                .iter()
-                .enumerate()
-                .map(|(i, pm)| (pm.to_string(), i))
-                .collect();
-            let mut enumerated: Vec<(usize, PathBuf)> =
-                candidates.into_iter().enumerate().collect();
-            enumerated.sort_by_key(|(orig_index, candidate)| {
-                let pm_name = candidate.file_name().and_then(|s| s.to_str()).unwrap_or("");
-                if let Some(&order_index) = order_map.get(pm_name) {
-                    (0, order_index)
-                } else {
-                    (1, *orig_index)
-                }
-            });
-            enumerated
-                .into_iter()
-                .map(|(_, candidate)| candidate)
-                .collect()
-        }
-        OrdMode::Interactive => {
-            println!("Interactive ordering mode enabled.");
-            println!("Detected package managers:");
-            for (i, candidate) in candidates.iter().enumerate() {
-                if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-                    println!("  {i}: {pm_name}");
-                }
-            }
-            println!("Enter the desired update order as comma-separated indices (e.g. 2,0,1) or press Enter to keep the current order:");
-            let mut input = String::new();
-            std::io::stdin()
-                .read_line(&mut input)
-                .expect("Failed to read line");
-            let input = input.trim();
-            if input.is_empty() {
-                if verbose {
-                    println!("No input provided, keeping original order.");
-                }
-                return candidates;
-            }
-            let indices: Vec<usize> = input
-                .split(',')
-                .filter_map(|s| s.trim().parse::<usize>().ok())
-                .collect();
-            if verbose {
-                println!("Specified indices: {indices:?}");
-            }
-            let mut ordered = Vec::new();
-            let mut selected_indices = HashSet::new();
-            for idx in indices {
-                if idx < candidates.len() {
-                    ordered.push(candidates[idx].clone());
-                    selected_indices.insert(idx);
-                }
-            }
-            // Append any candidates not specified, preserving original order.
-            for (i, candidate) in candidates.into_iter().enumerate() {
-                if !selected_indices.contains(&i) {
-                    ordered.push(candidate);
-                }
-            }
-            ordered
-        }
+    #[cfg(not(target_family = "windows"))]
+    {
+        let mut cmd = if use_sudo {
+            let mut c = Command::new("sudo");
+            c.arg(command);
+            c
+        } else {
+            Command::new(command)
+        };
+        cmd.args(args)
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .stdin(Stdio::inherit());
+        cmd
     }
 }
