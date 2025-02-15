@@ -29,7 +29,7 @@ pub fn self_update() -> Result<(), Box<dyn Error>> {
         .current_dir(&clone_path)
         .status()?;
     if !status.success() {
-        return Err("Cargo build failed".into());
+        return Err("Cargo build failed. Please report this error.".into());
     }
 
     // Determine the binary name based on the OS.

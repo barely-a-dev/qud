@@ -85,6 +85,7 @@ struct Config {
     specs: HashMap<String, PathBuf>,
     /// Auto mode uses non-interactive flags (if available) for each package manager.
     auto: bool,
+    noconfirm: bool,
     /// Verbose mode prints extra logging information.
     verbose: bool,
     /// List mode prints found package managers without performing any updates.
@@ -107,7 +108,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.2.8");
+            println!("qud v1.3.8");
             std::process::exit(0);
         }
         if pargs.contains(["-S", "--self-update"]) {
@@ -132,6 +133,7 @@ impl Config {
             Self::add_exclusion(&mut exclusions, &excl);
         }
         let auto = pargs.contains(["-a", "--auto"]);
+        let noconfirm = pargs.contains(["-n", "--noconfirm"]);
         let verbose = pargs.contains(["-v", "--verbose"]);
         let list = pargs.contains(["-l", "--list"]);
         let only_values: Vec<String> = pargs
@@ -202,6 +204,7 @@ impl Config {
             only,
             specs,
             auto,
+            noconfirm,
             verbose,
             list,
             dry_run,
@@ -212,7 +215,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.2.8
+            r#"qud v1.3.8
 
 Usage:
   qud [options]
@@ -230,6 +233,7 @@ Options:
   --help, -h          Show this help screen.
   --version, -V       Show version information.
   --self-update, -S   Update qud.
+  --noconfirm, -n     Don't confirm when updating. Does not pass non-interactive flags to package managers.
 "#
         );
     }
@@ -443,7 +447,7 @@ fn main() {
     for item in &planned_updates {
         println!("  {item}");
     }
-    if !config.auto {
+    if !config.auto && !config.noconfirm {
         println!("Proceed with these updates? (Y/n): ");
         let mut confirm = String::new();
         std::io::stdin()
