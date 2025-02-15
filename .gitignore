@@ -4,11 +4,12 @@ Cargo.lock
 **/*.rs.bk
 *.pdb
 /.idea
-# Test file for nuget
-file.sln
 
 # Storage for packages resulting from arch package builds.
 /pkgbuilt
 
 # Arch package build directory
 /arch_pkg
+
+# Test file for nuget
+nuget_test.sln
