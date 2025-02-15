@@ -63,6 +63,8 @@ cd qud
 cargo build --release
 ```
 
+
+
 After building, add the resulting binary (found in `target/release/qud`) to your system `PATH` for easy access.
 
 ---

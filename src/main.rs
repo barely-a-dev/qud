@@ -731,6 +731,7 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         "maven" => {
             if p_cont(current_dir, "pom.xml").unwrap_or(false) {
                 let args: &[&str] = if auto {
+                    &["versions:use-latest-releases"]
                 } else {
                     &["versions:display-dependency-updates"]
                 };
@@ -869,7 +870,6 @@ fn reorder_candidates(candidates: Vec<PathBuf>, ord_mode: &OrdMode, verbose: boo
                 .enumerate()
                 .map(|(i, pm)| (pm.to_string(), i))
                 .collect();
-            let mut enumerated: Vec<(usize, PathBuf)> = candidates.into_iter().enumerate().collect();
             let mut enumerated: Vec<(usize, PathBuf)> =
                 candidates.into_iter().enumerate().collect();
             enumerated.sort_by_key(|(orig_index, candidate)| {
