@@ -462,13 +462,6 @@ fn main() {
             }
         }
 
-        if config.verbose {
-            println!(
-                "Processing package manager: {pm_name} ({})",
-                package_manager.display()
-            );
-        }
-
         // Get any extra exclusion and extension arguments for this package manager.
         let mut extra_args = config.get_exclusion_args(pm_name);
         extra_args.extend(config.get_ext_args(pm_name));
