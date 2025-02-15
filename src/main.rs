@@ -419,7 +419,8 @@ fn main() {
     }
 
     // Reorder final candidates if --ord was provided.
-    let final_candidates = if let Some(ref ord_mode) = config.ord {
+    #[allow(unused_mut)]
+    let mut final_candidates = if let Some(ref ord_mode) = config.ord {
         reorder_candidates(final_candidates, ord_mode, config.verbose)
     } else {
         final_candidates
