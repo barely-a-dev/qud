@@ -1,8 +1,9 @@
 # qud: Universal Package Manager Updater
 
-`qud` is a command-line tool that **automatically detects and updates** various package managers across Linux, Windows, macOS, and more.
+`qud` is a command-line tool that **automatically detects and updates** various package managers across Linux, Windows,
+macOS, and more.
 
-> **Latest Version:** **v1.1.7**
+> **Latest Version:** **v1.2.7**
 
 ## Table of Contents
 
@@ -30,9 +31,11 @@
 
 ## Supported Package Managers
 
-**Linux:** `pacman`, `yay`, `apt`, `apt-get`, `dnf`, `zypper`, `snap`, `flatpak`, `xbps-install`, `apk`, `emerge`, `guix`, `nix`, `yum`, `eopkg`  
+**Linux:** `pacman`, `yay`, `apt`, `apt-get`, `dnf`, `zypper`, `snap`, `flatpak`, `xbps-install`, `apk`, `emerge`,
+`guix`, `nix`, `yum`, `eopkg`, `cave`, `sbopkg`, `scratch`
 **Windows:** `choco`, `scoop`, `winget`  
-**General/Other:** `rustup`, `brew`, `port`, `pkg`, `cargo`, `npm`, `pip`, `composer`, `gem`, `conda`, `poetry`, `nuget`, `asdf`, `vcpkg`, `conan`, `stack`, `opam`, `mix`, `sdkman`, `gvm`, `pnpm`, `yarn`, `maven`, `go`
+**General/Other:** `rustup`, `brew`, `port`, `pkg`, `cargo`, `npm`, `pip`, `composer`, `gem`, `conda`, `poetry`,
+`nuget`, `asdf`, `vcpkg`, `conan`, `stack`, `opam`, `mix`, `sdkman`, `gvm`, `pnpm`, `yarn`, `maven`, `go`
 
 ## Installation
 
@@ -49,13 +52,15 @@ Add `target/release/qud` to your `PATH`.
 ### Prebuilt Packages
 
 #### Arch Linux:
+
 ```bash
 sudo pacman -U qud-<version>-x86_64.pkg.tar.zst
 ```
 
 #### Debian-based:
+
 ```bash
-sudo apt install ./qud_v1.1.7_amd64.deb
+sudo apt install ./qud_v1.2.7_amd64.deb
 ```
 
 ## Usage
@@ -67,65 +72,74 @@ qud [options]
 ```
 
 It will:
+
 1. Detect available package managers.
 2. Apply configuration based on options.
 3. Execute or print (in dry-run mode) update commands.
 
 ## Command-Line Options
 
-| Option         | Alias  | Description |
-|---------------|--------|-------------|
-| `--dry`       | `-d`   | Print update commands without executing. |
-| `--excl <s>`  | `-e`   | Exclude a package (`pm::pkg`) or a package manager (`pm`). Repeatable. |
-| `--auto`      | `-a`   | Run updates in non-interactive mode. |
-| `--verbose`   | `-v`   | Enable detailed logging. |
-| `--list`      | `-l`   | List detected package managers without updating. |
-| `--only <pm>` | `-o`   | Update only the specified package manager(s). Repeatable. |
-| `--spec <s>`  | `-s`   | Override package manager executable (`pm::/path/to/executable`). |
-| `--ext <s>`   | `-E`   | Add extra flags (`pm::"<flags>"`). |
-| `--ord [s]`   | `-O`   | Set update order (e.g., `pm1,pm2,pm3`). Interactive mode if no value provided. |
-| `--help`      | `-h`   | Display help. |
-| `--version`   | `-V`   | Show version. |
+| Option        | Alias | Description                                                                    |
+|---------------|-------|--------------------------------------------------------------------------------|
+| `--dry`       | `-d`  | Print update commands without executing.                                       |
+| `--excl <s>`  | `-e`  | Exclude a package (`pm::pkg`) or a package manager (`pm`). Repeatable.         |
+| `--auto`      | `-a`  | Run updates in non-interactive mode.                                           |
+| `--verbose`   | `-v`  | Enable detailed logging.                                                       |
+| `--list`      | `-l`  | List detected package managers without updating.                               |
+| `--only <pm>` | `-o`  | Update only the specified package manager(s). Repeatable.                      |
+| `--spec <s>`  | `-s`  | Override package manager executable (`pm::/path/to/executable`).               |
+| `--ext <s>`   | `-E`  | Add extra flags (`pm::"<flags>"`).                                             |
+| `--ord [s]`   | `-O`  | Set update order (e.g., `pm1,pm2,pm3`). Interactive mode if no value provided. |
+| `--help`      | `-h`  | Display help.                                                                  |
+| `--version`   | `-V`  | Show version.                                                                  |
 
 ## Examples
 
 ### Dry Run
+
 ```bash
 qud --dry
 ```
 
 ### Exclude a Package or Manager
+
 ```bash
 qud --excl apt::vim  # Exclude vim from apt
 qud --excl pacman    # Exclude pacman entirely
 ```
 
 ### Auto Mode (Non-Interactive)
+
 ```bash
 qud --auto
 ```
 
 ### Update Only Specific Package Managers
+
 ```bash
 qud --only apt --only yum
 ```
 
 ### Override Executable Path
+
 ```bash
 qud --spec pacman::/custom/path/to/pacman
 ```
 
 ### Add Extra Flags
+
 ```bash
 qud --ext 'apt::"--fix-missing"'
 ```
 
 ### Set Custom Update Order
+
 ```bash
 qud --ord apt,yum,brew
 ```
 
 For interactive ordering:
+
 ```bash
 qud --ord
 ```
@@ -161,7 +175,7 @@ Submit issues or pull requests on [GitHub](https://github.com/barely-a-dev/qud).
 
 ## Version
 
-**v1.1.7**
+**v1.2.7**
 
 For assistance, visit [GitHub](https://github.com/barely-a-dev/qud). Happy updating!
 

@@ -9,11 +9,11 @@ use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
 // Supported package managers:
-// Linux: pacman, yay, apt, apt-get, dnf, zypper, snap, flatpak, xbps-install, apk, emerge, guix, nix, yum, eopkg
+// Linux: pacman, yay, apt, apt-get, dnf, zypper, snap, flatpak, xbps-install, apk, emerge, guix, nix, yum, eopkg, cave, sbopkg, scratch
 // Windows: choco, scoop, winget
 // General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman
 // gvm, pnpm, yarn, maven, go
-const PM: [&str; 42] = [
+const PM: [&str; 45] = [
     "pacman",
     "yay",
     "apt",
@@ -56,6 +56,9 @@ const PM: [&str; 42] = [
     "yarn",
     "maven",
     "go",
+    "cave",
+    "sbopkg",
+    "scratch",
 ];
 
 /// Determines how to order package manager updates.
@@ -99,7 +102,7 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.1.7");
+            println!("qud v1.2.7");
             std::process::exit(0);
         }
 
@@ -192,7 +195,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.1.7
+            r#"qud v1.2.7
 
 Usage:
   qud [options]
@@ -271,6 +274,7 @@ Options:
     }
 }
 
+#[must_use]
 pub fn format_list(pkgs: &[String]) -> String {
     use std::fmt::Write;
     let mut out = String::new();
@@ -765,6 +769,32 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
                 upd("go", &["get", "-u", "./..."], false, extra_args, dry_run);
             }
         }
+        "cave" => {
+            upd("cave", &["sync"], true, extra_args, dry_run);
+            let args: &[&str] = if auto {
+                &["upgrade", "--non-interactive"]
+            } else {
+                &["upgrade"]
+            };
+            upd("cave", args, true, extra_args, dry_run);
+        }
+        "sbopkg" => {
+            upd("sbopkg", &["-r"], true, extra_args, dry_run);
+            let args: &[&str] = if auto {
+                &["-i", "--non-interactive"]
+            } else {
+                &["-i"]
+            };
+            upd("sbopkg", args, true, extra_args, dry_run);
+        }
+        "scratch" => {
+            let args: &[&str] = if auto {
+                &["update", "--non-interactive"]
+            } else {
+                &["update"]
+            };
+            upd("scratch", args, true, extra_args, dry_run);
+        }
         _ => eprintln!("\x1b[93mWarning:\x1b[0m Unknown package manager: {pm_name}"),
     }
 }
@@ -815,12 +845,14 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
     };
 
     if dry_run {
-        println!("Dry run: {}", cmd_str);
+        println!("Dry run: {cmd_str}");
         return;
     }
-    println!("\x1b[94mINFO: Executing command: {}\x1b[0m", cmd_str);
+    println!("\x1b[94mINFO: Executing command: {cmd_str}\x1b[0m");
     match gen_upd_cmd(command, &args, use_sudo).status() {
-        Ok(es) => println!("\x1b[94mINFO: Successfully updated with {command}, exited with status {es}\x1b[0m"),
+        Ok(es) => println!(
+            "\x1b[94mINFO: Successfully updated with {command}, exited with status {es}\x1b[0m"
+        ),
         Err(e) => eprintln!("\x1b[91mERR:\x1b[0m Failed to update with {command}, ERR: {e}"),
     }
 }
