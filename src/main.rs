@@ -820,7 +820,7 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
     }
     println!("\x1b[94mINFO: Executing command: {}\x1b[0m", cmd_str);
     match gen_upd_cmd(command, &args, use_sudo).status() {
-        Ok(es) => println!("Successfully updated with {command}, exited with status {es}"),
+        Ok(es) => println!("\x1b[94mINFO: Successfully updated with {command}, exited with status {es}\x1b[0m"),
         Err(e) => eprintln!("\x1b[91mERR:\x1b[0m Failed to update with {command}, ERR: {e}"),
     }
 }
