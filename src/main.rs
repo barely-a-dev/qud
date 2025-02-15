@@ -1,5 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
+mod self_up;
+
 use pico_args::Arguments;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -13,7 +15,8 @@ use walkdir::WalkDir;
 // Windows: choco, scoop, winget
 // General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman
 // gvm, pnpm, yarn, maven, go
-const PM: [&str; 45] = [
+// and qud itself.
+const PM: [&str; 46] = [
     "pacman",
     "yay",
     "apt",
@@ -59,6 +62,7 @@ const PM: [&str; 45] = [
     "cave",
     "sbopkg",
     "scratch",
+    "qud",
 ];
 
 /// Determines how to order package manager updates.
@@ -93,17 +97,30 @@ struct Config {
 }
 
 impl Config {
+    #[allow(clippy::too_many_lines)]
     fn parse_args() -> Config {
         let mut pargs = Arguments::from_env();
 
-        // Help and version.
+        // Help, version, and self updating.
         if pargs.contains(["-h", "--help"]) {
             Self::print_help();
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.2.7");
+            println!("qud v1.2.8");
             std::process::exit(0);
+        }
+        if pargs.contains(["-S", "--self-update"]) {
+            if !self_up::perm::is_elevated() {
+                eprintln!("Program must be run as root to update.");
+                std::process::exit(2);
+            }
+            println!("Updating qud...");
+            match self_up::self_update() {
+                Ok(()) => println!("qud updated successfully, exiting."),
+                Err(e) => eprintln!("qud failed to update: {e}, exiting."),
+            }
+            std::process::exit(-1);
         }
 
         let dry_run = pargs.contains(["-d", "--dry"]);
@@ -195,7 +212,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.2.7
+            r#"qud v1.2.8
 
 Usage:
   qud [options]
@@ -212,6 +229,7 @@ Options:
   --ord, -O [s]       Specify the update order. If provided a value (pm1,pm2,...), that order is used for those found; if no value is provided, you'll be prompted to sort.
   --help, -h          Show this help screen.
   --version, -V       Show version information.
+  --self-update, -S   Update qud.
 "#
         );
     }
@@ -794,6 +812,9 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
                 &["update"]
             };
             upd("scratch", args, true, extra_args, dry_run);
+        }
+        "qud" => {
+            upd("qud", &["--self-update"], true, extra_args, dry_run);
         }
         _ => eprintln!("\x1b[93mWarning:\x1b[0m Unknown package manager: {pm_name}"),
     }
