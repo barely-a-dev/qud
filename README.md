@@ -3,7 +3,7 @@
 `qud` is a command-line tool that **automatically detects and updates** various package managers across Linux, Windows,
 macOS, and more.
 
-> **Latest Version:** **v1.5.0**
+> **Latest Version:** **v1.5.1**
 
 ## Table of Contents
 
@@ -33,7 +33,7 @@ macOS, and more.
 
 **Linux:** `pacman`, `yay`, `apt`, `apt-get`, `dnf`, `zypper`, `snap`, `flatpak`, `xbps-install`, `apk`, `emerge`,
 `guix`, `nix`, `yum`, `eopkg`, `cave`, `sbopkg`, `scratch`
-**Windows:** `choco`, `scoop`, `winget`  
+**Windows:** `choco`, `scoop`, `winget`, `Windows`
 **General/Other:** `rustup`, `brew`, `port`, `pkg`, `cargo`, `npm`, `pip`, `composer`, `gem`, `conda`, `poetry`,
 `nuget`, `asdf`, `vcpkg`, `conan`, `stack`, `opam`, `mix`, `sdkman`, `gvm`, `pnpm`, `yarn`, `maven`, `go`
 
@@ -59,7 +59,7 @@ sudo pacman -U qud-<version>-x86_64.pkg.tar.zst
 #### Debian-based:
 
 ```bash
-sudo apt install ./qud_v1.5.0_amd64.deb
+sudo apt install ./qud_v1.5.1_amd64.deb
 ```
 
 ## Usage
@@ -78,19 +78,21 @@ It will:
 
 ## Command-Line Options
 
-| Option        | Alias | Description                                                                    |
-|---------------|-------|--------------------------------------------------------------------------------|
-| `--dry`       | `-d`  | Print update commands without executing.                                       |
-| `--excl <s>`  | `-e`  | Exclude a package (`pm::pkg`) or a package manager (`pm`). Repeatable.         |
-| `--auto`      | `-a`  | Run updates in non-interactive mode.                                           |
-| `--verbose`   | `-v`  | Enable detailed logging.                                                       |
-| `--list`      | `-l`  | List detected package managers without updating.                               |
-| `--only <pm>` | `-o`  | Update only the specified package manager(s). Repeatable.                      |
-| `--spec <s>`  | `-s`  | Override package manager executable (`pm::/path/to/executable`).               |
-| `--ext <s>`   | `-E`  | Add extra flags (`pm::"<flags>"`).                                             |
-| `--ord [s]`   | `-O`  | Set update order (e.g., `pm1,pm2,pm3`). Interactive mode if no value provided. |
-| `--help`      | `-h`  | Display help.                                                                  |
-| `--version`   | `-V`  | Show version.                                                                  |
+| Option          | Alias | Description                                                                               |
+|-----------------|-------|-------------------------------------------------------------------------------------------|
+| `--dry`         | `-d`  | Print update commands without executing.                                                  |
+| `--excl <s>`    | `-e`  | Exclude a package (`pm::pkg`) or a package manager (`pm`). Repeatable.                    |
+| `--auto`        | `-a`  | Run updates in non-interactive mode.                                                      |
+| `--verbose`     | `-v`  | Enable detailed logging.                                                                  |
+| `--list`        | `-l`  | List detected package managers without updating.                                          |
+| `--only <pm>`   | `-o`  | Update only the specified package manager(s). Repeatable.                                 |
+| `--spec <s>`    | `-s`  | Override package manager executable (`pm::/path/to/executable`).                          |
+| `--ext <s>`     | `-E`  | Add extra flags (`pm::"<flags>"`).                                                        |
+| `--ord [s]`     | `-O`  | Set update order (e.g., `pm1,pm2,pm3`). Interactive mode if no value provided.            |
+| `--help`        | `-h`  | Display help.                                                                             |
+| `--version`     | `-V`  | Show version.                                                                             |
+| `--self-update` | `-S`  | Update qud itself.                                                                        |
+ | `--noconfirm`   | `-n`  | Do not confirm before updating. Does not stop package managers from prompting, only qud.  |
 
 ## Examples
 
@@ -174,7 +176,7 @@ Submit issues or pull requests on [GitHub](https://github.com/barely-a-dev/qud).
 
 ## Version
 
-**v1.5.0**
+**v1.5.1**
 
 For assistance, visit [GitHub](https://github.com/barely-a-dev/qud). Happy updating!
 

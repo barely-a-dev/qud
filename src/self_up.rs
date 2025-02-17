@@ -1,12 +1,22 @@
-use std::{
-    error::Error,
-    fs,
-    path::PathBuf,
-    process::Command,
-};
+use std::io::Write;
+use std::{error::Error, fs, path::PathBuf, process::Command};
 
-pub fn self_update() -> Result<(), Box<dyn Error>> {
+pub fn self_update(noconfirm: bool) -> Result<(), Box<dyn Error>> {
     let repo_url = "https://github.com/barely-a-dev/qud.git";
+
+    if !noconfirm {
+        println!("Are you sure you want to update qud v1.5.1? (Y/n)");
+        std::io::stdout().flush().unwrap();
+        let mut confirm = String::new();
+        std::io::stdin()
+            .read_line(&mut confirm)
+            .expect("Failed to read line");
+        let confirm = confirm.trim().to_lowercase();
+        if confirm == "n" || confirm == "no" {
+            println!("Update cancelled by user.");
+            std::process::exit(0);
+        }
+    }
 
     let temp_dir = std::env::temp_dir().join("qud_temp");
     if temp_dir.exists() {
@@ -51,6 +61,7 @@ pub fn self_update() -> Result<(), Box<dyn Error>> {
         fs::set_permissions(&binary_path, perms)?;
     }
 
+    // Define the installation path.
     #[cfg(not(target_family = "windows"))]
     let install_path = PathBuf::from("/usr/bin/qud");
 
@@ -61,13 +72,35 @@ pub fn self_update() -> Result<(), Box<dyn Error>> {
         target_dir.join("qud.exe")
     };
 
-    println!(
-        "Copying built binary from {binary_path:?} to {install_path:?}",
-    );
-    fs::copy(&binary_path, &install_path)?;
+    #[cfg(not(target_family = "windows"))]
+    {
+        let temp_install_path = install_path.with_extension("new");
+        println!(
+            "Copying built binary from {binary_path:?} to temporary location {temp_install_path:?}"
+        );
+        fs::copy(&binary_path, &temp_install_path)?;
+        
+        println!("Spawning updater process to replace the binary after exit.");
+        Command::new("sh")
+            .arg("-c")
+            .arg(format!(
+                "sleep 10 && mv {} {}",
+                temp_install_path.display(),
+                install_path.display()
+            ))
+            .spawn()?;
 
-    println!("Self-update successful!");
+        println!("Self-update scheduled.");
+    }
 
+    #[cfg(target_family = "windows")]
+    {
+        println!("Copying built binary from {binary_path:?} to {install_path:?}");
+        fs::copy(&binary_path, &install_path)?;
+        println!("Self-update successful!");
+    }
+
+    // Clean up temporary directory.
     fs::remove_dir_all(&temp_dir)?;
 
     Ok(())

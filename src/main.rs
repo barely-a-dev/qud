@@ -82,8 +82,8 @@ fn main() {
         .map(PathBuf::from)
     {
         if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-            if let Some(_) = seen.get(pm_name) {
-                duplicates.entry(pm_name.to_string()).or_insert_with(Vec::new).push(candidate.clone());
+            if seen.contains_key(pm_name) {
+                duplicates.entry(pm_name.to_string()).or_default().push(candidate.clone());
             } else {
                 seen.insert(pm_name.to_string(), candidate.clone());
                 candidates.push(candidate);
@@ -638,7 +638,12 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
             upd("scratch", args, true, extra_args, dry_run);
         }
         "qud" => {
-            upd("qud", &["--self-update"], true, extra_args, dry_run);
+            let args: &[&str] = if auto {
+                &["--self-update", "--noconfirm"]
+            } else {
+                &["--self-update"]  
+            };
+            upd("qud", args, true, extra_args, dry_run);
         }
         _ => eprintln!(
             "{} Unknown package manager: {}",

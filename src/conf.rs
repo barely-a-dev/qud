@@ -49,20 +49,8 @@ impl Config {
             std::process::exit(0);
         }
         if pargs.contains(["-V", "--version"]) {
-            println!("qud v1.5.0");
+            println!("qud v1.5.1");
             std::process::exit(0);
-        }
-        if pargs.contains(["-S", "--self-update"]) {
-            if !self_up::perm::is_elevated() {
-                eprintln!("Program must be run as root to update.");
-                std::process::exit(2);
-            }
-            println!("Updating qud...");
-            match self_up::self_update() {
-                Ok(()) => println!("qud updated successfully, exiting."),
-                Err(e) => eprintln!("qud failed to update: {e}, exiting."),
-            }
-            std::process::exit(-1);
         }
 
         let dry_run = pargs.contains(["-d", "--dry"]);
@@ -75,6 +63,18 @@ impl Config {
         }
         let auto = pargs.contains(["-a", "--auto"]);
         let noconfirm = pargs.contains(["-n", "--noconfirm"]);
+        if pargs.contains(["-S", "--self-update"]) {
+            if !self_up::perm::is_elevated() {
+                eprintln!("Program must be run as root to update.");
+                std::process::exit(2);
+            }
+            println!("Updating qud...");
+            match self_up::self_update(noconfirm) {
+                Ok(()) => println!("qud updated successfully, exiting."),
+                Err(e) => eprintln!("qud failed to update: {e}, exiting."),
+            }
+            std::process::exit(-1);
+        }
         let verbose = pargs.contains(["-v", "--verbose"]);
         let list = pargs.contains(["-l", "--list"]);
         let only_values: Vec<String> = pargs
@@ -164,7 +164,7 @@ impl Config {
 
     fn print_help() {
         println!(
-            r#"qud v1.5.0
+            r#"qud v1.5.1
 
 Usage:
   qud [options]
