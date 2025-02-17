@@ -7,6 +7,7 @@ mod self_up;
 use conf::Config;
 use helpers::{find_matching_executables, format_list, p_cont, p_cont_ext, reorder_candidates};
 
+use colored::Colorize;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::io::Write;
@@ -73,61 +74,55 @@ const PM: [&str; 47] = [
 fn main() {
     let config = Config::parse_args();
 
-    // Find matching executables in PATH (as raw candidates, possibly with duplicates).
-    let raw_candidates: Vec<PathBuf> = find_matching_executables(&PM)
+    let mut seen = HashMap::new();
+    let mut duplicates: HashMap<String, Vec<PathBuf>> = HashMap::new();
+    let mut candidates = Vec::new();
+    for candidate in find_matching_executables(&PM)
         .into_iter()
         .map(PathBuf::from)
-        .collect();
-
-    // Group candidates by their file name (usually package manager name)
-    let mut grouped: HashMap<String, Vec<PathBuf>> = HashMap::new();
-    for candidate in &raw_candidates {
+    {
         if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-            grouped
-                .entry(pm_name.to_string())
-                .or_default()
-                .push(candidate.clone());
+            if let Some(_) = seen.get(pm_name) {
+                duplicates.entry(pm_name.to_string()).or_insert_with(Vec::new).push(candidate.clone());
+            } else {
+                seen.insert(pm_name.to_string(), candidate.clone());
+                candidates.push(candidate);
+            }
         }
     }
 
-    // Now, choose one candidate per package manager.
-    // We preserve the order in which they were found in PATH.
-    let mut unique_candidates = Vec::new();
-    let mut seen = HashSet::new();
-    for candidate in raw_candidates {
-        if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-            if seen.contains(pm_name) {
-                continue;
-            }
-            seen.insert(pm_name.to_string());
-            if let Some(dups) = grouped.get(pm_name) {
-                if dups.len() > 1 && config.verbose {
-                    eprintln!(
-                        "\x1b[93mWarning:\x1b[0m Multiple installations of {} found: {}. Using {}. Use --spec {}::/path/to/executable to override this. \x1b[93mIgnore if --spec was already specified.\x1b[0m",
-                        pm_name,
-                        format_list(&dups.iter()
-                            .map(|p| p.display().to_string())
-                            .collect::<Vec<_>>()),
-                        candidate.display(),
-                        pm_name
-                    );
+    if config.verbose {
+        for candidate in &candidates {
+            if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
+                if !config.specs.contains_key(pm_name) {
+                    if let Some(dups) = duplicates.get(pm_name) {
+                        let mut all_paths = vec![candidate.display().to_string()];
+                        all_paths.extend(dups.iter().map(|p| p.display().to_string()));
+                        eprintln!(
+                            "{} Multiple installations of {} found: {}. Using {}. Use --spec {}::/path/to/executable to override this.",
+                            "Warning:".yellow(),
+                            pm_name,
+                            format_list(&all_paths),
+                            candidate.display(),
+                            pm_name
+                        );
+                    }
                 }
             }
-            unique_candidates.push(candidate);
         }
     }
 
     if config.verbose {
         println!(
-            "Found {} candidate package manager executable(s).",
-            unique_candidates.len()
+            "{} Found {} candidate package manager executable(s).",
+            "INFO:".blue(),
+            candidates.len()
         );
     }
 
-    // If --list was passed, list found package managers and exit.
     if config.list {
         println!("Detected package managers:");
-        for path in &unique_candidates {
+        for path in &candidates {
             if let Some(pm_name) = path.file_name().and_then(|s| s.to_str()) {
                 println!("  {} ({})", pm_name, path.display());
             }
@@ -135,17 +130,16 @@ fn main() {
         return;
     }
 
-    // Apply any overrides from --spec. If a spec is provided for a package manager,
-    // use that instead of the detected candidate. Also add any --spec entries that were not detected.
     let mut final_candidates = Vec::new();
     let mut used_pm_names = HashSet::new();
-    for candidate in unique_candidates {
+    for candidate in candidates {
         if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
             used_pm_names.insert(pm_name.to_string());
             if let Some(spec_path) = config.specs.get(pm_name) {
                 if config.verbose {
                     println!(
-                        "Overriding {} with specified executable: {}",
+                        "{} Overriding {} with specified executable: {}",
+                        "INFO:".blue(),
                         pm_name,
                         spec_path.display()
                     );
@@ -160,7 +154,8 @@ fn main() {
         if !used_pm_names.contains(pm) {
             if config.verbose {
                 println!(
-                    "Adding specified executable for {} not found in PATH: {}",
+                    "{} Adding specified executable for {} not found in PATH: {}",
+                    "INFO:".blue(),
                     pm,
                     spec_path.display()
                 );
@@ -169,7 +164,6 @@ fn main() {
         }
     }
 
-    // Reorder final candidates if --ord was provided.
     #[allow(unused_mut)]
     let mut final_candidates = if let Some(ref ord_mode) = config.ord {
         reorder_candidates(final_candidates, ord_mode, config.verbose)
@@ -191,24 +185,22 @@ fn main() {
                     .unwrap_or(false)
             }) {
                 if config.verbose {
-                    println!("Adding Windows update.");
+                    println!("{} Adding Windows update.", "INFO:".blue());
                 }
                 final_candidates.push(PathBuf::from("windowsupdate"));
             }
         }
     }
 
-    let planned_updates: Vec<_> = final_candidates
+    let planned_updates: Vec<String> = final_candidates
         .iter()
         .filter_map(|candidate| {
             if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
-                // Respect --only option.
                 if let Some(ref only_list) = config.only {
                     if !only_list.iter().any(|s| s == pm_name) {
                         return None;
                     }
                 }
-                // Skip fully excluded package managers.
                 if let Some(exclusions) = config.exclusions.get(pm_name) {
                     if exclusions.is_empty() {
                         return None;
@@ -225,56 +217,113 @@ fn main() {
     for item in &planned_updates {
         println!("  {item}");
     }
+
     if !config.auto && !config.noconfirm {
-        println!("Proceed with these updates? (Y/n): ");
-        std::io::stdout().flush().unwrap();
-        let mut confirm = String::new();
-        std::io::stdin()
-            .read_line(&mut confirm)
-            .expect("Failed to read line");
-        let confirm = confirm.trim().to_lowercase();
-        if confirm == "n" || confirm == "no" {
-            println!("Update cancelled by user.");
-            std::process::exit(0);
+        let updatable: Vec<(PathBuf, String)> = final_candidates
+            .iter()
+            .filter_map(|candidate| {
+                if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
+                    if let Some(ref only_list) = config.only {
+                        if !only_list.iter().any(|s| s == pm_name) {
+                            return None;
+                        }
+                    }
+                    if let Some(exclusions) = config.exclusions.get(pm_name) {
+                        if exclusions.is_empty() {
+                            return None;
+                        }
+                    }
+                    Some((candidate.clone(), pm_name.to_string()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if !updatable.is_empty() {
+            println!(
+                "{} Detected package managers to update:",
+                "INFO:".blue()
+            );
+            for (i, (_candidate, pm_name)) in updatable.iter().enumerate() {
+                println!("  {}. {}", i + 1, pm_name);
+            }
+            println!(
+                "{} Enter numbers of package managers to skip (space separated), or press Enter to proceed:",
+                "INFO:".blue()
+            );
+            std::io::stdout().flush().unwrap();
+            let mut input = String::new();
+            std::io::stdin().read_line(&mut input).unwrap();
+            let skip_numbers: Vec<usize> = input
+                .split_whitespace()
+                .filter_map(|s| s.parse::<usize>().ok())
+                .collect();
+            let skip_set: HashSet<usize> =
+                skip_numbers.into_iter().map(|n| n - 1).collect();
+            let skip_pm_names: HashSet<String> = updatable
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| skip_set.contains(i))
+                .map(|(_, (_, pm_name))| pm_name.clone())
+                .collect();
+            final_candidates.retain(|candidate| {
+                if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
+                    !skip_pm_names.contains(pm_name)
+                } else {
+                    true
+                }
+            });
+            println!("{} Proceeding with updates for:", "INFO:".blue());
+            for candidate in &final_candidates {
+                if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
+                    println!("  {} ({})", pm_name, candidate.display());
+                }
+            }
         }
     }
 
-    let current_dir = env::current_dir().unwrap_or_else(|_| "/".into());
-
-    // Process each final candidate package manager.
     for package_manager in final_candidates {
         let Some(pm_name) = package_manager.file_name().and_then(|s| s.to_str()) else {
             continue;
         };
 
-        // If --only was used, skip those not specified.
         if let Some(ref only_list) = config.only {
             if !only_list.iter().any(|s| s == pm_name) {
                 if config.verbose {
-                    println!("Skipping {pm_name} because it is not in the --only list.");
+                    println!(
+                        "{} Skipping {} because it is not in the --only list.",
+                        "INFO:".blue(),
+                        pm_name
+                    );
                 }
                 continue;
             }
         }
 
-        // Check for full exclusion (i.e. --excl used with just a package manager name)
         if let Some(exclusions) = config.exclusions.get(pm_name) {
             if exclusions.is_empty() {
                 if config.verbose {
-                    println!("Skipping {pm_name} because it is fully excluded via --excl");
+                    println!(
+                        "{} Skipping {} because it is fully excluded via --excl",
+                        "INFO:".blue(),
+                        pm_name
+                    );
                 }
                 continue;
             }
         }
 
-        // Get any extra exclusion and extension arguments for this package manager.
         let mut extra_args = config.get_exclusion_args(pm_name);
         extra_args.extend(config.get_ext_args(pm_name));
 
         process_pm(
             pm_name,
             config.auto,
-            &current_dir,
+            #[cfg(not(target_os = "windows"))]
+            &env::current_dir().unwrap_or_else(|_| "/".into()),
+            #[cfg(target_os = "windows")]
+            &env::current_dir().unwrap_or_else(|_| "C:\\".into()),
             &extra_args,
             config.dry_run,
         );
@@ -284,7 +333,8 @@ fn main() {
 #[allow(clippy::too_many_lines)]
 fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[String], dry_run: bool) {
     println!(
-        "\x1b[94mINFO: Processing package manager: {} in directory: {}\x1b[0m",
+        "{} Processing package manager: {} in directory: {}",
+        "INFO:".blue(),
         pm_name,
         current_dir.display()
     );
@@ -374,37 +424,18 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         #[cfg(target_os = "windows")]
         "windowsupdate" => {
-            // First set execution policy for current user
             let setup_commands = [
-                // Set execution policy for current user
                 "Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force",
-                // Check if PSWindowsUpdate is installed, install if not
                 "if (!(Get-Module -ListAvailable -Name PSWindowsUpdate)) { Install-Module -Name PSWindowsUpdate -Force -Scope CurrentUser }",
-                // Import it
-                "Import-Module PSWindowsUpdate"
+                "Import-Module PSWindowsUpdate",
+                if auto {
+                    "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command &{Install-WindowsUpdate -AcceptAll -AutoReboot}'"
+                } else {
+                    "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command &{Install-WindowsUpdate}'"
+                }
             ].join("; ");
-            
-            let setup_result = Command::new("powershell")
-                .args(&[
-                    "-Command",
-                    "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command &{",
-                    &setup_commands,
-                    "}'"
-                ])
-                .status();
-            
-            if let Err(e) = setup_result {
-                eprintln!("Failed to setup Windows Update environment: {}", e);
-                return;
-            }
 
-            let update_command = if auto {
-                "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command &{Install-WindowsUpdate -AcceptAll -AutoReboot}'"
-            } else {
-                "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile -Command &{Install-WindowsUpdate}'"
-            };
-
-            upd("powershell", &["-Command", update_command], false, extra_args, dry_run);
+            upd("powershell", &["-Command", &setup_commands], false, extra_args, dry_run);
         }
         "rustup" => {
             upd("rustup", &["update"], false, extra_args, dry_run);
@@ -432,13 +463,7 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "guix" => {
             upd("guix", &["pull"], false, extra_args, dry_run);
-            upd(
-                "guix",
-                &["package", "--upgrade"],
-                false,
-                extra_args,
-                dry_run,
-            );
+            upd("guix", &["package", "--upgrade"], false, extra_args, dry_run);
         }
         "yum" => {
             let args: &[&str] = if auto { &["update", "-y"] } else { &["update"] };
@@ -450,20 +475,12 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "pkg" => {
             upd("pkg", &["update"], true, extra_args, dry_run);
-            let args: &[&str] = if auto {
-                &["upgrade", "-y"]
-            } else {
-                &["upgrade"]
-            };
+            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
             upd("pkg", args, true, extra_args, dry_run);
         }
         "eopkg" => {
             upd("eopkg", &["update-repo"], true, extra_args, dry_run);
-            let args: &[&str] = if auto {
-                &["upgrade", "-y"]
-            } else {
-                &["upgrade"]
-            };
+            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
             upd("eopkg", args, true, extra_args, dry_run);
         }
         "cargo" => {
@@ -528,13 +545,7 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "asdf" => {
             upd("asdf", &["update"], false, extra_args, dry_run);
-            upd(
-                "asdf",
-                &["plugin-update", "--all"],
-                false,
-                extra_args,
-                dry_run,
-            );
+            upd("asdf", &["plugin-update", "--all"], false, extra_args, dry_run);
         }
         "vcpkg" => {
             let args: &[&str] = if auto { &["upgrade"] } else { &["update"] };
@@ -561,11 +572,7 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "opam" => {
             upd("opam", &["update"], false, extra_args, dry_run);
-            let args: &[&str] = if auto {
-                &["upgrade", "-y"]
-            } else {
-                &["upgrade"]
-            };
+            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
             upd("opam", args, false, extra_args, dry_run);
         }
         "mix" => {
@@ -633,14 +640,14 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         "qud" => {
             upd("qud", &["--self-update"], true, extra_args, dry_run);
         }
-        _ => eprintln!("\x1b[93mWarning:\x1b[0m Unknown package manager: {pm_name}"),
+        _ => eprintln!(
+            "{} Unknown package manager: {}",
+            "Warning:".yellow(),
+            pm_name
+        ),
     }
 }
 
-/// Combines the base arguments and any extra (exclusion/extension) arguments, then
-/// executes (or prints in dry-run mode) the update command.
-///
-/// `use_sudo` indicates whether to prefix the command with "sudo".
 fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String], dry_run: bool) {
     let mut args: Vec<String> = base_args.iter().map(ToString::to_string).collect();
     args.extend_from_slice(extra_args);
@@ -664,22 +671,34 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
         return;
     }
 
-    println!("\x1b[94mINFO: Executing command: {cmd_str}\x1b[0m");
+    println!("{} Executing command: {cmd_str}", "INFO:".blue());
     match gen_upd_cmd(command, &args, use_sudo).status() {
         Ok(es) => {
             if es.success() {
-                println!("\x1b[94mINFO: Successfully updated with {command}, exited with status {es}\x1b[0m");
+                println!(
+                    "{} Successfully updated with {}, exited with status {}",
+                    "INFO:".blue(),
+                    command,
+                    es
+                );
             } else {
                 println!(
-                    "\x1b[91mERR:\x1b[0m Failed to update with {command}, exited with status: {es}"
+                    "{} Failed to update with {}, exited with status: {}",
+                    "ERR:".red(),
+                    command,
+                    es
                 );
             }
         }
-        Err(e) => eprintln!("\x1b[91mERR:\x1b[0m Failed to update with {command}, error: {e}"),
+        Err(e) => eprintln!(
+            "{} Failed to update with {}, error: {}",
+            "ERR:".red(),
+            command,
+            e
+        ),
     }
 }
 
-/// Creates a Command configured with the given arguments and inherited I/O settings.
 #[must_use]
 pub fn gen_upd_cmd(command: &str, args: &[String], use_sudo: bool) -> Command {
     #[cfg(target_family = "windows")]

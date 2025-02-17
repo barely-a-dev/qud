@@ -1,8 +1,9 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-use pico_args::Arguments;
 use crate::helpers::format_list;
 use crate::self_up;
+use colored::Colorize;
+use pico_args::Arguments;
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 /// Determines how to order package manager updates.
 #[derive(Debug)]
@@ -97,10 +98,10 @@ impl Config {
                     let path = PathBuf::from(sects[1]);
                     specs.insert(pm, path);
                 } else {
-                    eprintln!("\x1b[91mERR:\x1b[0m Invalid spec format: {spec}");
+                    eprintln!("{} Invalid spec format: {spec}", "ERR:".red());
                 }
             } else {
-                eprintln!("\x1b[91mERR:\x1b[0m Invalid spec format: {spec}");
+                eprintln!("{} Invalid spec format: {spec}", "ERR:".red());
             }
         }
 
@@ -116,7 +117,7 @@ impl Config {
                     .collect();
                 exts.entry(pm.to_string()).or_default().extend(flags_vec);
             } else {
-                eprintln!("\x1b[91mERR:\x1b[0m Invalid ext format: {ext}");
+                eprintln!("{} Invalid ext format: {ext}", "ERR:".red());
             }
         }
 
@@ -138,6 +139,13 @@ impl Config {
         } else {
             None
         };
+
+        // Print error and exit for unrecognized arguments.
+        let remaining = pargs.finish();
+        if !remaining.is_empty() {
+            eprintln!("{} Unrecognized arguments: {:?}", "ERR:".red(), remaining);
+            std::process::exit(1);
+        }
 
         Config {
             exclusions,
@@ -189,7 +197,7 @@ Options:
                 // If the package manager was already fully excluded (empty vec), keep it that way.
                 map.entry(pm).or_default().push(pkg);
             } else {
-                eprintln!("\x1b[91mERR:\x1b[0m Invalid exclusion format: {excl}");
+                eprintln!("{} Invalid exclusion format: {excl}", "ERR:".red());
             }
         } else {
             // Full exclusion: mark the package manager as entirely excluded by storing an empty Vec.
@@ -221,7 +229,8 @@ Options:
                 }
                 p => {
                     eprintln!(
-                        "\x1b[93mWARN:\x1b[0m {} does not support exclusions (or not yet implemented). The following packages ({}) will still be updated.",
+                        "{} {} does not support exclusions (or not yet implemented). The following packages ({}) will still be updated.",
+                        "WARN:".yellow(),
                         p,
                         format_list(pkgs)
                     );
