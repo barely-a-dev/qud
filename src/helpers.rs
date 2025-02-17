@@ -2,7 +2,7 @@ use std::{env, fs};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
-use crate::OrdMode;
+use crate::conf::OrdMode;
 
 #[cfg(target_family = "windows")]
 fn is_executable(path: &Path) -> bool {
@@ -118,4 +118,52 @@ pub fn reorder_candidates(candidates: Vec<PathBuf>, ord_mode: &OrdMode, verbose:
             ordered
         }
     }
+}
+
+/// Checks if a directory contains a file with the given name.
+pub fn p_cont<P: AsRef<Path>>(dir: P, file_name: &str) -> std::io::Result<bool> {
+    let dir = dir.as_ref();
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            if let Some(name) = entry.file_name().to_str() {
+                if name == file_name {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+    Ok(false)
+}
+
+pub fn p_cont_ext<P: AsRef<Path>>(dir: P, extension: &str) -> Option<std::io::Result<String>> {
+    let dir = dir.as_ref();
+    if dir.is_dir() {
+        for entry in fs::read_dir(dir).ok()? {
+            let entry = entry.ok()?;
+            if let Some(name) = entry.file_name().to_str() {
+                if name.ends_with(extension) {
+                    return Some(Ok(name.to_string()));
+                }
+            }
+        }
+    }
+    None
+}
+
+#[must_use]
+pub fn format_list(pkgs: &[String]) -> String {
+    use std::fmt::Write;
+    let mut out = String::new();
+    let last = pkgs.len() - 1;
+    for (i, pkg) in pkgs.iter().enumerate() {
+        if i == last && last != 0 {
+            write!(out, "and \"{pkg}\"").unwrap();
+        } else if i == last {
+            write!(out, "\"{pkg}\"").unwrap();
+        } else {
+            write!(out, "\"{pkg}\", ").unwrap();
+        }
+    }
+    out
 }
