@@ -18,9 +18,8 @@ use std::process::{Command, Stdio};
 // Linux: pacman, yay, apt, apt-get, dnf, zypper, snap, flatpak, xbps-install, apk, emerge, guix, nix, yum, eopkg, cave, sbopkg, scratch
 // Windows: choco, scoop, winget, Windows itself (via PowerShell)
 // General: rustup, brew, port (MacPorts), pkg (FreeBSD), cargo, npm, pip, composer, gem, conda, poetry, nuget, asdf, vcpkg, conan, stack, opam, mix, sdkman,
-// gvm, pnpm, yarn, maven, go,
-// and qud itself.
-const PM: [&str; 47] = [
+// gvm, pnpm, yarn, maven, and go
+const PM: [&str; 46] = [
     "pacman",
     "yay",
     "apt",
@@ -66,7 +65,6 @@ const PM: [&str; 47] = [
     "cave",
     "sbopkg",
     "scratch",
-    "qud",
     "windowsupdate",
 ];
 
@@ -83,7 +81,10 @@ fn main() {
     {
         if let Some(pm_name) = candidate.file_name().and_then(|s| s.to_str()) {
             if seen.contains_key(pm_name) {
-                duplicates.entry(pm_name.to_string()).or_default().push(candidate.clone());
+                duplicates
+                    .entry(pm_name.to_string())
+                    .or_default()
+                    .push(candidate.clone());
             } else {
                 seen.insert(pm_name.to_string(), candidate.clone());
                 candidates.push(candidate);
@@ -241,10 +242,7 @@ fn main() {
             .collect();
 
         if !updatable.is_empty() {
-            println!(
-                "{} Detected package managers to update:",
-                "INFO:".blue()
-            );
+            println!("{} Detected package managers to update:", "INFO:".blue());
             for (i, (_candidate, pm_name)) in updatable.iter().enumerate() {
                 println!("  {}. {}", i + 1, pm_name);
             }
@@ -259,8 +257,7 @@ fn main() {
                 .split_whitespace()
                 .filter_map(|s| s.parse::<usize>().ok())
                 .collect();
-            let skip_set: HashSet<usize> =
-                skip_numbers.into_iter().map(|n| n - 1).collect();
+            let skip_set: HashSet<usize> = skip_numbers.into_iter().map(|n| n - 1).collect();
             let skip_pm_names: HashSet<String> = updatable
                 .iter()
                 .enumerate()
@@ -435,7 +432,13 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
                 }
             ].join("; ");
 
-            upd("powershell", &["-Command", &setup_commands], false, extra_args, dry_run);
+            upd(
+                "powershell",
+                &["-Command", &setup_commands],
+                false,
+                extra_args,
+                dry_run,
+            );
         }
         "rustup" => {
             upd("rustup", &["update"], false, extra_args, dry_run);
@@ -463,7 +466,13 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "guix" => {
             upd("guix", &["pull"], false, extra_args, dry_run);
-            upd("guix", &["package", "--upgrade"], false, extra_args, dry_run);
+            upd(
+                "guix",
+                &["package", "--upgrade"],
+                false,
+                extra_args,
+                dry_run,
+            );
         }
         "yum" => {
             let args: &[&str] = if auto { &["update", "-y"] } else { &["update"] };
@@ -475,12 +484,20 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "pkg" => {
             upd("pkg", &["update"], true, extra_args, dry_run);
-            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd("pkg", args, true, extra_args, dry_run);
         }
         "eopkg" => {
             upd("eopkg", &["update-repo"], true, extra_args, dry_run);
-            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd("eopkg", args, true, extra_args, dry_run);
         }
         "cargo" => {
@@ -545,7 +562,13 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "asdf" => {
             upd("asdf", &["update"], false, extra_args, dry_run);
-            upd("asdf", &["plugin-update", "--all"], false, extra_args, dry_run);
+            upd(
+                "asdf",
+                &["plugin-update", "--all"],
+                false,
+                extra_args,
+                dry_run,
+            );
         }
         "vcpkg" => {
             let args: &[&str] = if auto { &["upgrade"] } else { &["update"] };
@@ -572,7 +595,11 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
         }
         "opam" => {
             upd("opam", &["update"], false, extra_args, dry_run);
-            let args: &[&str] = if auto { &["upgrade", "-y"] } else { &["upgrade"] };
+            let args: &[&str] = if auto {
+                &["upgrade", "-y"]
+            } else {
+                &["upgrade"]
+            };
             upd("opam", args, false, extra_args, dry_run);
         }
         "mix" => {
@@ -637,14 +664,6 @@ fn process_pm(pm_name: &str, auto: bool, current_dir: &Path, extra_args: &[Strin
             };
             upd("scratch", args, true, extra_args, dry_run);
         }
-        "qud" => {
-            let args: &[&str] = if auto {
-                &["--self-update", "--noconfirm"]
-            } else {
-                &["--self-update"]  
-            };
-            upd("qud", args, true, extra_args, dry_run);
-        }
         _ => eprintln!(
             "{} Unknown package manager: {}",
             "Warning:".yellow(),
@@ -666,7 +685,11 @@ fn upd(command: &str, base_args: &[&str], use_sudo: bool, extra_args: &[String],
 
     #[cfg(target_os = "windows")]
     let cmd_str = if use_sudo {
-        format!("runas /user:Administrator \"{} {}\"", command, args.join(" "))
+        format!(
+            "runas /user:Administrator \"{} {}\"",
+            command,
+            args.join(" ")
+        )
     } else {
         format!("{} {}", command, args.join(" "))
     };
